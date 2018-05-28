@@ -172,7 +172,7 @@ public class AwsConsoleApp {
         } catch (Exception ex) {
         	throw new Exception(ex);
         }
-        
+        // Eclipse test
         return responsePutLog.toString();        
     }
     
