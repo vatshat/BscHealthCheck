@@ -165,8 +165,7 @@ public class AwsConsoleApp {
         			new CreateLogStreamRequest()
         				.withLogStreamName(hash.toString())
         				.withLogGroupName("reverseproxy_haproxy")
-    				;
-        	
+    				;        	
         	cwl.createLogStream(requestCreateLog);
         	responsePutLog = cwl.putLogEvents(requestPutLog);
         	
