@@ -3,13 +3,11 @@ package com.amazonaws.samples;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
-import java.util.List;
+import java.util.UUID;
 import java.net.*;
 import java.io.*;
 import java.lang.Exception;
 
-import com.amazonaws.AmazonClientException;
-import com.amazonaws.AmazonServiceException;
 import com.amazonaws.services.logs.model.*;  
 
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
@@ -22,16 +20,18 @@ import com.amazonaws.services.securitytoken.model.Credentials;
 import com.amazonaws.services.logs.AWSLogs;
 import com.amazonaws.services.logs.AWSLogsClientBuilder; 
 
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
 import java.text.SimpleDateFormat;
 
 public class AwsConsoleApp {
 
 	static AWSLogs cwl;
-	static String sToken = "49579106711935359531544515365754847872952635190293857810";
-    
+	static String sToken;
+	
+	// Generating log group and stream name 	
+	static String stringLogGroup = "reverseproxy_haproxy";
+    static String simpleDate = new SimpleDateFormat("dd-MM-yyyy").format(new Date()).toString();
+    static String stringLogStream = UUID.nameUUIDFromBytes(simpleDate.getBytes()).toString(); 
+    		    
     public static void main(String[] args) throws Exception {
 
         System.out.println("===========================================");
@@ -39,7 +39,7 @@ public class AwsConsoleApp {
         System.out.println("===========================================");
 
         init();
-        System.out.println(cwLog(httpHealthCheck("http://www.google.co.za/")));
+        System.out.println(putLogAPI(httpHealthCheck("http://www.google.co.za/")).toString());
     }    
     
     private static StringBuilder httpHealthCheck(String urlParameter) throws MalformedURLException, UnknownHostException, IOException {
@@ -124,16 +124,9 @@ public class AwsConsoleApp {
                 .build();
     }
     
-    private static String cwLog(StringBuilder message) throws Exception {    	       
-    	// Generating log group and stream name 
-    	
-    	final String stringLogGroup = "reverseproxy_haproxy";
-        String date = new SimpleDateFormat("dd-MM-yyyy").format(new Date());
-        byte[] hash = getHash(date, "MD5");
-        final String stringLogStream = hash.toString(); //"d94ac61f5031e6f570914dde08cd5eb9c902fb05434617f8b79d6e97da9303c";
-        		
+    private static PutLogEventsResult putLogAPI(StringBuilder message) throws Exception {
 		// creating logs object
-        List<LogStream> logStreamList = new ArrayList<LogStream>();
+        // List<LogStream> logtreamList = new ArrayList<LogStream>();
 
         InputLogEvent log = new InputLogEvent();
         Calendar calendar = Calendar.getInstance(); 
@@ -152,40 +145,23 @@ public class AwsConsoleApp {
         			.withSequenceToken(sToken)
         		;
 		
-    	PutLogEventsResult responsePutLog;    	
-                
-        // making API call 
+        // making API call
         try {
-        	responsePutLog = cwl.putLogEvents(requestPutLog);        		
+        	return cwl.putLogEvents(requestPutLog);        		
         } catch (InvalidSequenceTokenException tokenEx) {
-        	requestPutLog.setSequenceToken(tokenEx.getExpectedSequenceToken()); 
-        	responsePutLog = cwl.putLogEvents(requestPutLog);        	
+        	sToken = tokenEx.getExpectedSequenceToken();
+        	return putLogAPI(message);        	
         } catch (ResourceNotFoundException ex) {           
         	CreateLogStreamRequest requestCreateLog = 
         			new CreateLogStreamRequest()
-        				.withLogStreamName(hash.toString())
-        				.withLogGroupName("reverseproxy_haproxy")
+        				.withLogStreamName(stringLogStream)
+        				.withLogGroupName(stringLogGroup)
     				;        	
         	cwl.createLogStream(requestCreateLog);
-        	responsePutLog = cwl.putLogEvents(requestPutLog);
+        	return putLogAPI(message);
         	
         } catch (Exception ex) {
         	throw new Exception(ex);
-        }
-        // Eclipse test
-        return responsePutLog.toString();        
-    }
-    
-    // https://docs.aws.amazon.com/cloudhsm/latest/userguide/java-sample-hash.html
-    private static byte[] getHash(String md5Message, String hashAlgorithm) {
-        try {
-            MessageDigest md = MessageDigest.getInstance(hashAlgorithm);
-            md.update(md5Message.getBytes());
-            byte[] hash = md.digest();
-            return hash;
-        } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();
-        }
-        return null;
-    }
+        }        
+    }    
 }
