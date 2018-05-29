@@ -4,6 +4,9 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.UUID;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.net.*;
 import java.io.*;
 import java.lang.Exception;
@@ -22,39 +25,50 @@ import com.amazonaws.services.logs.AWSLogsClientBuilder;
 
 import java.text.SimpleDateFormat;
 
-public class AwsConsoleApp {
-
-	static AWSLogs cwl;
-	static String sToken;
+public class AwsConsoleApp { 
 	
-	// Generating log group and stream name 	
-	static String stringLogGroup = "reverseproxy_haproxy";
-    static String simpleDate = new SimpleDateFormat("dd-MM-yyyy").format(new Date()).toString();
-    static String stringLogStream = UUID.nameUUIDFromBytes(simpleDate.getBytes()).toString(); 
-    		    
     public static void main(String[] args) throws Exception {
 
         System.out.println("===========================================");
         System.out.println("BSC - Learn to Code!");
         System.out.println("===========================================");
+        
+	    HttpHealthChecker httpPing = new HttpHealthChecker("http://www.google.co.za/");        
+	    CloudWatchLogsAPI cwLogAPI = new CloudWatchLogsAPI("reverseproxy_haproxy");	    
+        
+        int x = 1;
 
-        init();
-        System.out.println(putLogAPI(httpHealthCheck("http://www.google.co.za/")).toString());
-    }    
+        while( x < 1000 ) {
+        	try {
+        	    System.out.println(cwLogAPI.putLog(httpPing.ping()).toString());
+                x++;
+        	    Thread.sleep(1000);        	    
+        	} 
+        	catch (InterruptedException ex) {
+        	    Thread.currentThread().interrupt();
+        	}
+        }
+        
+    }
+}
+
+class HttpHealthChecker {
+
+    private URL url;
     
-    private static StringBuilder httpHealthCheck(String urlParameter) throws MalformedURLException, UnknownHostException, IOException {
-
-        // http://www.codejava.net/java-se/networking/java-socket-client-examples-tcp-ip
-        
-        URL url;
-        StringBuilder response = new StringBuilder("");
-        
+    HttpHealthChecker(String urlParameter) throws MalformedURLException, UnknownHostException {
         try {
-            url = new URL(urlParameter);
+            this.url = new URL(urlParameter);
         } catch (MalformedURLException ex) {
             ex.printStackTrace();
              throw ex;
-        }
+        }    	
+    }
+    
+    public StringBuilder ping() throws IOException {
+        StringBuilder response = new StringBuilder("");
+
+        // http://www.codejava.net/java-se/networking/java-socket-client-examples-tcp-ip                
  
         String hostname = url.getHost();
         int port = 80;
@@ -93,11 +107,28 @@ public class AwsConsoleApp {
         }
         return response;
     }
+}
 
-    private static void init() throws Exception {
+class CloudWatchLogsAPI{
+
+	private static AWSLogs cwl;
+	private String sToken;
+	
+	// Generating log group and stream name 	
+	private String stringLogGroup;
+	private String simpleDate;
+	private String stringLogStream;
+    
+	CloudWatchLogsAPI (String LogGroupName) throws Exception {
+		this.stringLogGroup = LogGroupName;
+		this.simpleDate = new SimpleDateFormat("dd-MM-yyyy").format(new Date()).toString();
+		this.stringLogStream = UUID.nameUUIDFromBytes(simpleDate.getBytes()).toString();
+
     	/* 
     	 * set environment variables AWS_ROLE_ARN, AWS_PROFILE and AWS_REGION (bug) - https://github.com/aws/aws-sdk-java/issues/1083
     	 * Configure role profile - https://docs.aws.amazon.com/cli/latest/userguide/cli-roles.html
+    	 * 
+    	 * initializing the SDK client 
     	 *  
     	 */ 
     	
@@ -122,12 +153,9 @@ public class AwsConsoleApp {
                 .withCredentials(new AWSStaticCredentialsProvider(sessionCredentials))
                 .withRegion(region)
                 .build();
-    }
+	}
     
-    private static PutLogEventsResult putLogAPI(StringBuilder message) throws Exception {
-		// creating logs object
-        // List<LogStream> logtreamList = new ArrayList<LogStream>();
-
+    public PutLogEventsResult putLog(StringBuilder message) throws Exception {    	
         InputLogEvent log = new InputLogEvent();
         Calendar calendar = Calendar.getInstance(); 
         ArrayList<InputLogEvent> logEvents = new ArrayList<InputLogEvent>();
@@ -150,18 +178,30 @@ public class AwsConsoleApp {
         	return cwl.putLogEvents(requestPutLog);        		
         } catch (InvalidSequenceTokenException tokenEx) {
         	sToken = tokenEx.getExpectedSequenceToken();
-        	return putLogAPI(message);        	
-        } catch (ResourceNotFoundException ex) {           
-        	CreateLogStreamRequest requestCreateLog = 
-        			new CreateLogStreamRequest()
-        				.withLogStreamName(stringLogStream)
-        				.withLogGroupName(stringLogGroup)
-    				;        	
-        	cwl.createLogStream(requestCreateLog);
-        	return putLogAPI(message);
-        	
+        	return putLog(message);        	
+        } catch (ResourceNotFoundException ex) {
+        	if (ex.getErrorMessage().contentEquals("The specified log group does not exist.")) {
+            	CreateLogGroupRequest requestCreateLogGroup = 
+            			new CreateLogGroupRequest()
+            				.withLogGroupName(stringLogGroup);
+
+				cwl.createLogGroup(requestCreateLogGroup);
+            	
+            	return putLog(message);
+        	} 
+        	else {
+            	CreateLogStreamRequest requestCreateLog = 
+            			new CreateLogStreamRequest()
+            				.withLogStreamName(stringLogStream)
+            				.withLogGroupName(stringLogGroup)
+        				;
+            	
+            	cwl.createLogStream(requestCreateLog);
+            	
+            	return putLog(message);
+        	}
         } catch (Exception ex) {
-        	throw new Exception(ex);
-        }        
+    		throw new Exception(ex);
+        }      	
     }    
 }
