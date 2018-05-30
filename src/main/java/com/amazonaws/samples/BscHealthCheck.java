@@ -12,6 +12,8 @@ import java.io.*;
 import java.lang.Exception;
 
 import com.amazonaws.services.logs.model.*;  
+import com.amazonaws.metrics.AwsSdkMetrics; 
+
 
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicSessionCredentials;
@@ -25,30 +27,28 @@ import com.amazonaws.services.logs.AWSLogsClientBuilder;
 
 import java.text.SimpleDateFormat;
 
-public class AwsConsoleApp { 
+public class BscHealthCheck { 
 	
     public static void main(String[] args) throws Exception {
 
         System.out.println("===========================================");
         System.out.println("BSC - Learn to Code!");
-        System.out.println("===========================================");
-        
+        System.out.println("===========================================");       
+	    
 	    HttpHealthChecker httpPing = new HttpHealthChecker("http://www.google.co.za/");        
 	    CloudWatchLogsAPI cwLogAPI = new CloudWatchLogsAPI("reverseproxy_haproxy");	    
-        
-        int x = 1;
 
-        while( x < 1000 ) {
-        	try {
-        	    System.out.println(cwLogAPI.putLog(httpPing.ping()).toString());
-                x++;
-        	    Thread.sleep(1000);        	    
-        	} 
-        	catch (InterruptedException ex) {
-        	    Thread.currentThread().interrupt();
-        	}
-        }
-        
+	    final ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
+	    executorService.scheduleAtFixedRate(new Runnable() {
+	        @Override
+	        public void run() {
+	    		try {
+	    			System.out.println(cwLogAPI.putLog(httpPing.ping()).toString());
+	    		} catch (Exception e) {
+	    			e.printStackTrace();
+	    		}
+	        }
+	    }, 0, 1, TimeUnit.SECONDS);	    
     }
 }
 
@@ -152,7 +152,7 @@ class CloudWatchLogsAPI{
         cwl = AWSLogsClientBuilder.standard()
                 .withCredentials(new AWSStaticCredentialsProvider(sessionCredentials))
                 .withRegion(region)
-                .build();
+                .build();        
 	}
     
     public PutLogEventsResult putLog(StringBuilder message) throws Exception {    	
