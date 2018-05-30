@@ -5,16 +5,26 @@
   <version>1.0.0</version>
   <dependencies>
     <dependency>
+    	<groupId>com.amazonaws</groupId>
+    	<artifactId>aws-java-sdk-core</artifactId>
+    	<version>1.11.335</version>
+    </dependency>
+    <dependency>
       <groupId>com.amazonaws</groupId>
-      <artifactId>aws-java-sdk</artifactId>
+      <artifactId>aws-java-sdk-cloudwatch</artifactId>
       <version>1.11.335</version>
       <scope>compile</scope>
     </dependency>
     <dependency>
       <groupId>com.amazonaws</groupId>
-      <artifactId>amazon-kinesis-client</artifactId>
-      <version>1.2.1</version>
+      <artifactId>aws-java-sdk-logs</artifactId>
+      <version>1.11.335</version>
       <scope>compile</scope>
+    </dependency>
+    <dependency>
+    	<groupId>com.amazonaws</groupId>
+    	<artifactId>aws-java-sdk-sts</artifactId>
+    	<version>1.11.335</version>
     </dependency>
   </dependencies>
   <build>
