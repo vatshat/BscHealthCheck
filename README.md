@@ -1,4 +1,4 @@
-# bscHealthChecker
+# BscHealthCheck
 
 Java HTTP health checker which uploads to Cloudwatch logs
 
